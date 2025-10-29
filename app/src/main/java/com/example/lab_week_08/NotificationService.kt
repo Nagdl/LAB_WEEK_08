@@ -162,7 +162,8 @@ class NotificationService : Service() {
             //Here, we're counting down from 10 to 0 in the notification
             countDownFromTenToZero(notificationBuilder)
             //Here we're notifying the MainActivity that the service process is done
-            //by returning the channel ID through LiveData notifyCompletion(Id)
+            //by returning the channel ID through LiveData
+            notifyCompletion(Id)
             //Stops the foreground service, which closes the notification
             //but the service still goes on
             stopForeground(STOP_FOREGROUND_REMOVE)

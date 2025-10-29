@@ -17,6 +17,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import com.example.lab_week_08.worker.FirstWorker
 import com.example.lab_week_08.worker.SecondWorker
+import com.example.lab_week_08.worker.ThirdWorker
 
 class MainActivity : AppCompatActivity() {
     //Create an instance of a work manager
@@ -50,6 +51,7 @@ class MainActivity : AppCompatActivity() {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val id = "001"
+        val id2 = "002"
         //There are two types of work request:
         //OneTimeWorkRequest and PeriodicWorkRequest
         //OneTimeWorkRequest executes the request just once
@@ -72,6 +74,14 @@ class MainActivity : AppCompatActivity() {
                 SecondWorker
                 .INPUT_DATA_ID, id)
             ).build()
+        val thirdRequest = OneTimeWorkRequest
+            .Builder(ThirdWorker::class.java)
+            .setConstraints(networkConstraints)
+            .setInputData(getIdInputData(
+                ThirdWorker
+                    .INPUT_DATA_ID, id2)
+            ).build()
+
         //Sets up the process sequence from the work manager instance
         //Here it starts with FirstWorker, then SecondWorker
         workManager.beginWith(firstRequest)
@@ -101,6 +111,13 @@ class MainActivity : AppCompatActivity() {
                     launchNotificationService()
                 }
             }
+        workManager.getWorkInfoByIdLiveData(thirdRequest.id)
+            .observe(this) { info ->
+                if (info.state.isFinished) {
+                    showResult("Third process is done")
+                    launchSecondNotificationService()
+                }
+            }
     }
     //Build the data into the correct format before passing it to the worker as input
     private fun getIdInputData(idKey: String, idValue: String) =
@@ -118,7 +135,24 @@ class MainActivity : AppCompatActivity() {
         //If it is, show a toast with the channel ID in it
         NotificationService.trackingCompletion.observe(
             this) { Id ->
-            showResult("Process for Notification Channel ID $Id is done!")
+
+            if (Id.isNotEmpty()) {
+                showResult("Process for Notification Channel ID $Id is done!")
+
+                val networkConstraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+                val thirdRequest = OneTimeWorkRequest
+                    .Builder(ThirdWorker::class.java)
+                    .setConstraints(networkConstraints)
+                    .setInputData(getIdInputData(
+                        ThirdWorker
+                            .INPUT_DATA_ID, "002")
+                    ).build()
+
+                observeThirdWorker(thirdRequest)
+                workManager.enqueue(thirdRequest)
+            }
         }
 
         //Create an Intent to start the NotificationService
@@ -131,6 +165,32 @@ class MainActivity : AppCompatActivity() {
         }
 
         //Start the foreground service through the Service Intent
+        ContextCompat.startForegroundService(this, serviceIntent)
+    }
+
+    private fun observeThirdWorker(thirdRequest: OneTimeWorkRequest) {
+        workManager.getWorkInfoByIdLiveData(thirdRequest.id)
+            .observe(this) { info ->
+                if (info != null && info.state.isFinished) {
+                    showResult("Third process is done")
+                    launchSecondNotificationService()
+                }
+            }
+    }
+
+    private fun launchSecondNotificationService() {
+        SecondNotificationService.trackingCompletionSecond.observe(
+            this) { Id ->
+            if (Id.isNotEmpty()) {
+                showResult("Process for Second Notification Channel ID $Id is done!")
+            }
+        }
+        val serviceIntent = Intent(
+            this,
+            SecondNotificationService::class.java
+        ).apply {
+            putExtra(EXTRA_ID, "002")
+        }
         ContextCompat.startForegroundService(this, serviceIntent)
     }
     companion object{
